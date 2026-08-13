@@ -1,23 +1,101 @@
-# TODO: Implement CI/CD pipeline
-# 
-# This workflow should ensure code quality before deployment.
-# Consider: What checks are necessary? How do you gate deployments?
-#           How can someone verify a deployment occurred?
-#
-# The eval-runner service exists for a reason. The deployment/ directory
-# contains a manifest that may be useful.
-
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 jobs:
-  # TODO: Design and implement your pipeline
-  placeholder:
+  # Checks Python/YAML/JSON files parse before anything is built.
+  validate:
+    name: Validate syntax
     runs-on: ubuntu-latest
     steps:
-      - run: exit 1
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check Python files parse
+        run: python -m py_compile agent-api/app.py eval-runner/runner.py traffic-generator/generator.py
+
+      - name: Check YAML files are well-formed
+        run: |
+          pip install --quiet pyyaml
+          python -c "
+          import yaml
+          for f in ['docker-compose.yml', 'prometheus/prometheus.yml', 'prometheus/alert-rules.yml']:
+              yaml.safe_load(open(f))
+              print(f'OK: {f}')
+          "
+
+      - name: Check Grafana dashboard JSON is well-formed
+        run: python -m json.tool grafana/dashboards/agent-monitoring.json > /dev/null
+
+  # Builds the API and runs the eval suite as a quality gate.
+  eval-gate:
+    name: Eval suite (quality gate)
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # docker compose v2, not make (docker-compose v1 isn't guaranteed on hosted runners).
+      - name: Build images
+        run: docker compose build agent-api eval-runner
+
+      - name: Run eval suite against a live agent-api
+        run: docker compose run --rm eval-runner
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results/
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  # Stamps the deployed commit SHA into deployment/manifest.yml.
+  deploy:
+    name: Stamp deployment manifest
+    needs: eval-gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update deployment/manifest.yml with this commit's SHA
+        run: |
+          python3 - <<'PYEOF'
+          import os, re, datetime
+
+          path = "deployment/manifest.yml"
+          sha = os.environ["GITHUB_SHA"]
+          short_sha = sha[:7]
+          ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          text = open(path).read()
+          text = re.sub(r'image_tag: ".*"', f'image_tag: "{sha}"', text)
+          text = text.replace(
+              "# | (will be populated by CD pipeline)  |",
+              f"# | (will be populated by CD pipeline)  |\n"
+              f"# | {ts} | {short_sha} | github-actions |",
+          )
+          open(path, "w").write(text)
+          PYEOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deployment/manifest.yml
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore(deploy): stamp image_tag ${GITHUB_SHA} [skip ci]"
+          git push
