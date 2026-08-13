@@ -15,8 +15,12 @@ REQUEST_COUNT = Counter(
     ['prompt_version', 'route']
 )
 
-# TODO: How would you track rejection metrics for observability?
-# Consider: What information would operators need when debugging rejection spikes?
+# Labeled by reason so on-call can see which rejection category is spiking.
+REJECTION_COUNT = Counter(
+    'agent_rejections_total',
+    'Total number of rejected requests',
+    ['prompt_version', 'reason']
+)
 
 REQUEST_LATENCY = Histogram(
     'agent_request_latency_seconds',
@@ -114,7 +118,7 @@ def ask():
         rejected, reason = classify_rejection(message)
         
         if rejected:
-            # TODO: Implement rejection tracking here
+            REJECTION_COUNT.labels(prompt_version=PROMPT_VERSION, reason=reason).inc()
             response = {
                 'rejected': True,
                 'reason': reason,
