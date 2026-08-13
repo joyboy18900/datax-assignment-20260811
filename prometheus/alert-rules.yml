@@ -1,4 +1,12 @@
 groups:
+  - name: agent-api-recording
+    rules:
+      - record: agent:rejection_ratio:rate5m
+        expr: sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route="/ask"}[5m]))
+
+      - record: agent:rejection_ratio:rate30m
+        expr: sum(rate(agent_rejections_total[30m])) / sum(rate(agent_requests_total{route="/ask"}[30m]))
+
   - name: agent-api-alerts
     rules:
       - alert: AgentAPIDown
@@ -12,8 +20,7 @@ groups:
 
       # 2x the ~15% baseline observed via Prometheus.
       - alert: HighRejectionRate
-        expr: |
-          sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route="/ask"}[5m])) > 0.30
+        expr: agent:rejection_ratio:rate5m > 0.30
         for: 10m
         labels:
           severity: warning
@@ -24,9 +31,8 @@ groups:
       # 5m rate vs 30m trailing baseline (3x), floor avoids low-volume noise.
       - alert: RejectionRateSpike
         expr: |
-          (sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route="/ask"}[5m])))
-          > 3 * (sum(rate(agent_rejections_total[30m])) / sum(rate(agent_requests_total{route="/ask"}[30m])))
-          and sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route="/ask"}[5m])) > 0.10
+          agent:rejection_ratio:rate5m > 3 * agent:rejection_ratio:rate30m
+          and agent:rejection_ratio:rate5m > 0.10
         for: 2m
         labels:
           severity: critical

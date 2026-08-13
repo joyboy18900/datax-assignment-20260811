@@ -466,7 +466,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route=\"/ask\"}[5m]))",
+          "expr": "agent:rejection_ratio:rate5m",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"

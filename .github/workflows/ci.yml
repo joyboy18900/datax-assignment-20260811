@@ -56,10 +56,6 @@ jobs:
           name: eval-results
           path: eval-results/
 
-      - name: Tear down
-        if: always()
-        run: docker compose down -v
-
   # Stamps the deployed commit SHA into deployment/manifest.yml.
   deploy:
     name: Stamp deployment manifest
