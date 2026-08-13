@@ -109,7 +109,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "TODO: This panel should help operators understand rejection behavior. Consider what dimensions are useful for debugging.",
+      "description": "Rejection rate over time by prompt_version.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -159,11 +159,11 @@
               },
               {
                 "color": "yellow",
-                "value": 0.05
+                "value": 0.20
               },
               {
                 "color": "red",
-                "value": 0.08
+                "value": 0.30
               }
             ]
           },
@@ -197,13 +197,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "vector(0)",
-          "legendFormat": "TODO: Implement rejection rate query",
+          "expr": "sum(rate(agent_rejections_total[5m])) by (prompt_version) / sum(rate(agent_requests_total{route=\"/ask\"}[5m])) by (prompt_version)",
+          "legendFormat": "{{prompt_version}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Rejection Rate (TODO: FIX THIS PANEL)",
+      "title": "Rejection Rate",
       "type": "timeseries"
     },
     {
@@ -292,13 +292,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "vector(0)",
-          "legendFormat": "TODO",
+          "expr": "sum(rate(agent_rejections_total[5m])) by (reason)",
+          "legendFormat": "{{reason}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Rejections by Reason (TODO: FIX)",
+      "title": "Rejections by Reason",
       "type": "timeseries"
     },
     {
@@ -428,11 +428,11 @@
               },
               {
                 "color": "yellow",
-                "value": 0.05
+                "value": 0.20
               },
               {
                 "color": "red",
-                "value": 0.08
+                "value": 0.30
               }
             ]
           },
@@ -466,13 +466,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "vector(0)",
-          "legendFormat": "TODO",
+          "expr": "sum(rate(agent_rejections_total[5m])) / sum(rate(agent_requests_total{route=\"/ask\"}[5m]))",
+          "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Overall Rejection Rate (TODO: FIX)",
+      "title": "Overall Rejection Rate",
       "type": "stat"
     },
     {
